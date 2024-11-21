@@ -4,7 +4,9 @@ from django.http import JsonResponse
 from django.views import View
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
-from rest_framework.generics import ListAPIView, get_object_or_404, RetrieveUpdateDestroyAPIView
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.generics import ListAPIView, get_object_or_404, RetrieveUpdateDestroyAPIView, ListCreateAPIView
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
@@ -12,6 +14,7 @@ from rest_framework.viewsets import ModelViewSet
 from libraryApi.books.models import Book, Publisher
 from rest_framework.decorators import api_view
 
+from libraryApi.books.permissions import IsBookOwner
 from libraryApi.books.serializers import BookSerializer, PublisherHyperLinkSerializer, PublisherSerializer, \
     BookSimpleSerializer
 
@@ -35,23 +38,12 @@ def list_books_view(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class ListBooksView(APIView):
+class ListBooksView(ListCreateAPIView):
+    queryset = Book.objects.all()
+    serializer_class = BookSerializer
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication]
 
-    def get(self, request):
-        books = Book.objects.all()
-
-        serializer = BookSerializer(books, many=True)
-
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def post(self, request):
-        serializer = BookSerializer(data=request.data)
-
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @extend_schema(
     request=BookSerializer,
@@ -60,7 +52,8 @@ class ListBooksView(APIView):
 class BookViewSet(RetrieveUpdateDestroyAPIView):
     queryset = Book.objects.all()
     serializer_class = BookSimpleSerializer
-
+    permission_classes = [IsAuthenticated, IsBookOwner]
+    authentication_classes = [TokenAuthentication]
 
 
 class PublisherViewSet(ModelViewSet):
